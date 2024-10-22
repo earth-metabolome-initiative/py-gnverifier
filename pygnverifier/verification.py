@@ -4,10 +4,10 @@ import time
 import warnings
 from typing import Any, Optional
 
-import requests
-from requests import Response  # Importing specific types from requests
 from requests.exceptions import HTTPError
 from tqdm import tqdm
+
+from pygnverifier.base_api import BaseAPI
 
 
 class VerificationRequest:
@@ -68,20 +68,11 @@ class VerificationRequest:
         }
 
 
-class GNVerifier:
+class GNVerifier(BaseAPI):
     """Class to call the gnverifier API."""
 
-    url = "https://verifier.globalnames.org/api/v1/verifications"
-
-    def __init__(
-        self,
-        timeout: int = 10,
-        sleep: int = 2,
-        user_agent: Optional[str] = None,
-        verbose: bool = False,
-    ):
-        """Initialize GNVerifier API client."""
-        self.timeout = timeout
+    def __init__(self, timeout: int = 10, sleep: int = 2, user_agent: Optional[str] = None, verbose: bool = False):
+        super().__init__(base_url="https://verifier.globalnames.org/api/v1", timeout=timeout)
         self.sleep = sleep
         self.user_agent = user_agent
         self.verbose = verbose
@@ -106,26 +97,19 @@ class GNVerifier:
         """Send a verification request to the GNVerifier API."""
         headers = {
             "User-Agent": self.user_agent or "pygnverifier/0.1.0",
-            "Content-Type": "application/json",
         }
 
         try:
-            response: Response = requests.post(
-                self.url,
-                json=request.to_dict(),
-                headers=headers,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-
+            # Specify "verifications" as the endpoint
+            response = self._post(
+                "verifications", json=request.to_dict(), headers=headers
+            )  # Use the base class _post method
             return GNVerifierResponse(response.json())
-
         except HTTPError as http_err:
             warnings.warn(f"HTTP error occurred: {http_err}", stacklevel=2)
         except Exception as err:
             warnings.warn(f"Other error occurred: {err}", stacklevel=2)
         finally:
-            # Call loading bar for each name being processed
             self._sleeping_loading_bar(len(request.names), "Processing names")
         return GNVerifierResponse({})
 
