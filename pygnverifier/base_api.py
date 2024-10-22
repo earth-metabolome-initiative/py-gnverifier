@@ -18,7 +18,7 @@ class BaseAPI:
         url = f"{self.base_url}/{endpoint}"
         if headers is None:
             headers = {"accept": "application/json"}
-        response = requests.get(url, headers=headers, timeout=self.timeout)
+        response: Response = requests.get(url, headers=headers, timeout=self.timeout)
 
         if response.status_code != 200:
             response.raise_for_status()  # Raise an error for bad responses
@@ -29,7 +29,7 @@ class BaseAPI:
         url = f"{self.base_url}/{endpoint}"
         if headers is None:
             headers = {"Content-Type": "application/json"}
-        response = requests.post(url, json=json, headers=headers, timeout=self.timeout)
+        response: Response = requests.post(url, json=json, headers=headers, timeout=self.timeout)
 
         response.raise_for_status()  # Raise an error for bad responses
         return response
