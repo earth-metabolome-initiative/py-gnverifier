@@ -16,8 +16,8 @@ def cli() -> None:
 
 
 @click.command()
-@click.option("--names", "-n", multiple=True, required=True, help="Scientific names to verify.")
-@click.option("--data-sources", "-d", multiple=True, type=int, help="List of data source IDs to limit the search.")
+@click.option("--names", "-n", required=True, help="Comma-separated list of scientific names to verify.")
+@click.option("--data-sources", "-d", help="Comma-separated list of data source IDs to limit the search.")
 @click.option("--with-all-matches", is_flag=True, help="Return all possible matches.")
 @click.option("--with-capitalization", is_flag=True, help="Consider capitalization when verifying.")
 @click.option("--with-species-group", is_flag=True, help="Include species group in the verification.")
@@ -26,8 +26,8 @@ def cli() -> None:
 @click.option("--main-taxon-threshold", default=0.6, type=float, help="Set the threshold for main taxon match.")
 @click.option("--verbose", is_flag=True, help="Enable verbose mode.")
 def verify(
-    names: list[str],
-    data_sources: Optional[list[int]] = None,
+    names: str,
+    data_sources: Optional[str] = None,
     with_all_matches: bool = False,
     with_capitalization: bool = False,
     with_species_group: bool = False,
@@ -39,10 +39,14 @@ def verify(
     """
     Verify scientific names using the GNVerifier API.
     """
+    # Parse comma-separated names and data sources
+    names_list = [name.strip() for name in names.split(",")]
+    data_sources_list = [int(ds.strip()) for ds in data_sources.split(",")] if data_sources else None
+
     # Create a verification request
     request = VerificationRequest(
-        names=list(names),
-        data_sources=list(data_sources) if data_sources else None,
+        names=names_list,
+        data_sources=data_sources_list,
         with_all_matches=with_all_matches,
         with_capitalization=with_capitalization,
         with_species_group=with_species_group,
@@ -85,19 +89,19 @@ Examples on how to use the CLI:
 
 1. Verify scientific names:
    ```
-   python pygnverifier/cli.py verify -n "Pomatomus saltatrix" -n "Bubo bubo" --with-stats --verbose
+   python pygnverifier/cli.py verify -n "Pomatomus saltatrix, Bubo bubo" --with-stats --verbose
    ```
    This command will verify the scientific names "Pomatomus saltatrix" and "Bubo bubo", include statistics, and enable verbose mode.
 
 2. Verify scientific names with specific data sources:
    ```
-   python pygnverifier/gnverifier_cli.py verify -n "Isoetes longissimum" -d 1 -d 12 --with-all-matches
+   python pygnverifier/cli.py verify -n "Isoetes longissimum" -d "1, 12" --with-all-matches
    ```
    This command will verify the name "Isoetes longissimum" using data sources with IDs 1 and 12, and return all possible matches.
 
 3. List available data sources:
    ```
-   python pygnverifier/gnverifier_cli.py data-sources
+   python pygnverifier/cli.py data-sources
    ```
    This command will list all available data sources from the GNVerifier API.
 """
