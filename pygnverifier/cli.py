@@ -60,7 +60,16 @@ def verify(
     response = verifier.verify(request)
 
     # Print response details
-    response.print_formatted_names()
+    formatted_names = response.get_names()
+    for name in formatted_names:
+        print(f"Input Name: {name['input_name']}")
+        print(f"  Match Type: {name['match_type']}")
+        print(f"  Best Matched Name: {name['best_matched_name']}")
+        print(f"  Taxonomic Status: {name['taxonomic_status']}")
+        print(f"  Classification Path: {name['classification_path']}")
+        print(f"  Source Title: {name['source_title']}")
+        print(f"  Source Link: {name['source_outlink']}")
+        print()
 
 
 @click.command()
@@ -72,7 +81,7 @@ def data_sources() -> None:
     try:
         data_sources = client.get_data_sources()
         for ds in data_sources:
-            print(ds)
+            print(f"Title: {ds.title}, Version: {ds.version}, Record Count: {ds.record_count}")
     except requests.RequestException as e:
         print(f"An error occurred: {e}")
 

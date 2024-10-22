@@ -87,7 +87,7 @@ class DataSourceClient(BaseAPI):
         data_sources_data = response.json()
         data_sources = [
             DataSource(
-                datasource_id=ds["datasource_id"],
+                datasource_id=ds["id"],
                 uuid=ds.get("uuid", "N/A"),  # Use default if key missing
                 title=ds.get("title", "N/A"),  # Use default if key missing
                 title_short=ds.get("titleShort", "N/A"),  # Use default if key missing
