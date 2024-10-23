@@ -73,15 +73,49 @@ def verify(
 
 
 @click.command()
-def data_sources() -> None:
+@click.option(
+    "--output-format",
+    type=click.Choice(["pretty", "json"], case_sensitive=False),
+    default="pretty",
+    help="Choose the output format: pretty table or raw JSON.",
+)
+@click.option(
+    "--sort-key",
+    type=str,
+    default=None,
+    help="Specify the field to sort the data sources by (e.g., 'record_count', 'title').",
+)
+@click.option(
+    "--descending",
+    type=bool,
+    default=True,
+    help="Set the order of sorting. True for descending, False for ascending.",
+)
+@click.option(
+    "--output-file",
+    type=str,
+    default=None,
+    help="Specify a file path to save the output as JSON.",
+)
+def data_sources(output_format: str, sort_key: Optional[str], descending: bool, output_file: Optional[str]) -> None:
     """
-    List all available data sources from the GNVerifier API.
+    List all available data sources from the GNVerifier API in different formats.
     """
     client = DataSourceClient()
     try:
         data_sources = client.get_data_sources()
-        for ds in data_sources:
-            print(f"ID: {ds.datasource_id}, Title: {ds.title}, Version: {ds.version}, Record Count: {ds.record_count}")
+
+        if output_format.lower() == "pretty":
+            client.display_data_sources(data_sources, sort_key=sort_key, descending=descending)
+        elif output_format.lower() == "json":
+            json_data = client.export_data_sources_as_json(data_sources)
+            if output_file:
+                with open(output_file, "w") as file:
+                    file.write(json_data)
+                print(f"Data exported to {output_file}")
+            else:
+                print(json_data)
+
     except requests.RequestException as e:
         print(f"An error occurred: {e}")
 
@@ -92,6 +126,7 @@ cli.add_command(data_sources)
 
 if __name__ == "__main__":
     cli()
+
 
 """
 Examples on how to use the CLI:
@@ -113,4 +148,27 @@ Examples on how to use the CLI:
    python pygnverifier/cli.py data-sources
    ```
    This command will list all available data sources from the GNVerifier API.
+"""
+
+
+"""
+Examples on how to use the CLI:
+
+1. Display data sources in a pretty table:
+   ```
+   python pygnverifier/cli.py data-sources --format pretty --sort-key record_count --descending True
+   ```
+   This command will display the data sources in a formatted table, sorted by record count in descending order.
+
+2. Export data sources to a JSON file:
+   ```
+   python pygnverifier/cli.py data-sources --format json --output-file data_sources.json
+   ```
+   This command will export the data sources as a JSON file named 'data_sources.json'.
+
+3. Display data sources in JSON format in the terminal:
+   ```
+   python pygnverifier/cli.py data-sources --format json
+   ```
+   This command will output the data sources in raw JSON format to the terminal.
 """

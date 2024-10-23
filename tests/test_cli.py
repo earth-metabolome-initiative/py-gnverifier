@@ -40,17 +40,82 @@ def test_verify_command(mock_verification_request, mock_gnverifier, runner):
 
 
 @patch("pygnverifier.cli.DataSourceClient")  # Adjusted path to match cli.py imports
-def test_data_sources_command(mock_data_source_client, runner):
+def test_data_sources_command_pretty(mock_data_source_client, runner):
     # Mocking DataSourceClient's get_data_sources method
     mock_client_instance = MagicMock()
     mock_data_source_client.return_value = mock_client_instance
     mock_client_instance.get_data_sources.return_value = [
-        MagicMock(title="Catalogue of Life", version="2024-09-25", record_count=5209963)
+        MagicMock(
+            datasource_id=1,
+            title="Catalogue of Life",
+            version="2024-09-25",
+            record_count=5209963,
+            uuid="d4df2968-4257-4ad9-ab81-bedbbfb25e2a",
+            curation="Curated",
+            updated_at="2024-10-08",
+        )
     ]
 
-    result = runner.invoke(cli, ["data-sources"])
+    mock_client_instance.display_data_sources = MagicMock()
+
+    result = runner.invoke(cli, ["data-sources", "--output-format", "pretty"])
 
     assert result.exit_code == 0
-    assert "Title: Catalogue of Life" in result.output
-    assert "Version: 2024-09-25" in result.output
-    assert "Record Count: 5209963" in result.output
+    mock_client_instance.display_data_sources.assert_called_once()
+
+
+@patch("pygnverifier.cli.DataSourceClient")  # Adjusted path to match cli.py imports
+def test_data_sources_command_json(mock_data_source_client, runner):
+    # Mocking DataSourceClient's get_data_sources method
+    mock_client_instance = MagicMock()
+    mock_data_source_client.return_value = mock_client_instance
+    mock_client_instance.get_data_sources.return_value = [
+        MagicMock(
+            datasource_id=1,
+            title="Catalogue of Life",
+            version="2024-09-25",
+            record_count=5209963,
+            uuid="d4df2968-4257-4ad9-ab81-bedbbfb25e2a",
+            curation="Curated",
+            updated_at="2024-10-08",
+        )
+    ]
+
+    mock_client_instance.export_data_sources_as_json.return_value = (
+        '[{"id": 1, "title": "Catalogue of Life", "version": "2024-09-25"}]'
+    )
+
+    result = runner.invoke(cli, ["data-sources", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    assert "Catalogue of Life" in result.output
+
+
+@patch("pygnverifier.cli.DataSourceClient")  # Adjusted path to match cli.py imports
+def test_data_sources_command_json_to_file(mock_data_source_client, runner, tmp_path):
+    # Mocking DataSourceClient's get_data_sources method
+    mock_client_instance = MagicMock()
+    mock_data_source_client.return_value = mock_client_instance
+    mock_client_instance.get_data_sources.return_value = [
+        MagicMock(
+            datasource_id=1,
+            title="Catalogue of Life",
+            version="2024-09-25",
+            record_count=5209963,
+            uuid="d4df2968-4257-4ad9-ab81-bedbbfb25e2a",
+            curation="Curated",
+            updated_at="2024-10-08",
+        )
+    ]
+
+    mock_client_instance.export_data_sources_as_json.return_value = (
+        '[{"id": 1, "title": "Catalogue of Life", "version": "2024-09-25"}]'
+    )
+
+    output_file = tmp_path / "data_sources.json"
+    result = runner.invoke(cli, ["data-sources", "--output-format", "json", "--output-file", str(output_file)])
+
+    assert result.exit_code == 0
+    with open(output_file) as file:
+        content = file.read()
+        assert "Catalogue of Life" in content
