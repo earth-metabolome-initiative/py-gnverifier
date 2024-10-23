@@ -158,7 +158,9 @@ if __name__ == "__main__":
         data_sources = client.get_data_sources()
 
         # Example usage: Display data sources sorted by record count
-        client.display_data_sources(data_sources, sort_key="record_count", descending=True)
+        # client.display_data_sources(data_sources, sort_key="record_count", descending=True)
+        plain_data = [ds.__dict__ for ds in data_sources]
+        print(plain_data)
 
     except requests.RequestException as e:
         print(f"An error occurred: {e}")
