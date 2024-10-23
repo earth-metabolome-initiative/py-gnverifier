@@ -1,6 +1,11 @@
 """Submodule for handling data sources from the Global Names Verifier API."""
 
+from typing import Optional
+
 import requests
+from rich import print
+from rich.console import Console
+from rich.table import Table
 
 from pygnverifier.base_api import BaseAPI
 
@@ -64,8 +69,17 @@ class DataSource:
         self.record_count = record_count
         self.updated_at = updated_at
 
-    def __repr__(self) -> str:
-        return f"DataSource(ID={self.datasource_id}, title={self.title}, version={self.version}, uuid={self.uuid}, record_count={self.record_count})"
+    def to_table_row(self) -> list[str]:
+        """Return a list representing the row of the data source for the table."""
+        return [
+            str(self.datasource_id),
+            self.title,
+            self.version,
+            self.uuid,
+            str(self.record_count),
+            self.curation,
+            self.updated_at,
+        ]
 
 
 class DataSourceClient(BaseAPI):
@@ -104,12 +118,47 @@ class DataSourceClient(BaseAPI):
         ]
         return data_sources
 
+    def display_data_sources(
+        self, data_sources: list[DataSource], sort_key: Optional[str] = None, descending: bool = True
+    ) -> None:
+        """Display data sources in a table format, optionally sorted by a key.
+
+        Parameters
+        ----------
+        data_sources : list[DataSource]
+            A list of DataSource objects to be displayed.
+        sort_key : Optional[str] = None
+            Key function to sort the data sources. If None, no sorting is applied.
+        descending : bool = True
+            Flag to indicate if the data sources should be sorted in descending
+        """
+        if sort_key:
+            data_sources = sorted(data_sources, key=lambda ds: getattr(ds, sort_key), reverse=descending)
+
+        # Create a single table for all data sources
+        table = Table(title="All Data Sources Information", show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="cyan", justify="right")
+        table.add_column("Title", style="green")
+        table.add_column("Version", style="yellow")
+        table.add_column("UUID", style="magenta")
+        table.add_column("Record Count", style="red")
+        table.add_column("Curation", style="blue")
+        table.add_column("Updated At", style="white")
+
+        for ds in data_sources:
+            table.add_row(*ds.to_table_row())
+
+        console = Console()
+        console.print(table)
+
 
 if __name__ == "__main__":
     client = DataSourceClient()
     try:
         data_sources = client.get_data_sources()
-        for ds in data_sources:
-            print(ds)
+
+        # Example usage: Display data sources sorted by record count
+        client.display_data_sources(data_sources, sort_key="record_count", descending=True)
+
     except requests.RequestException as e:
         print(f"An error occurred: {e}")

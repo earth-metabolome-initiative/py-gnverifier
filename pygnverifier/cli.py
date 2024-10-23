@@ -81,7 +81,7 @@ def data_sources() -> None:
     try:
         data_sources = client.get_data_sources()
         for ds in data_sources:
-            print(f"Title: {ds.title}, Version: {ds.version}, Record Count: {ds.record_count}")
+            print(f"ID: {ds.datasource_id}, Title: {ds.title}, Version: {ds.version}, Record Count: {ds.record_count}")
     except requests.RequestException as e:
         print(f"An error occurred: {e}")
 

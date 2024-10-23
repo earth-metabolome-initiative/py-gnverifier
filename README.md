@@ -15,25 +15,27 @@ A python wrapper for gnverifier
 
 1. Verify scientific names:
 
-   ```
-   python pygnverifier/cli.py verify -n "Pomatomus saltatrix" -n "Bubo bubo" --with-stats --verbose
-   ```
+```bash
+python pygnverifier/cli.py verify -n "Pomatomus saltatrix" -n "Bubo bubo" --with-stats --verbose
+```
 
-   This command will verify the scientific names "Pomatomus saltatrix" and "Bubo bubo", include statistics, and enable verbose mode.
+This command will verify the scientific names "Pomatomus saltatrix" and "Bubo bubo", include statistics, and enable verbose mode.
 
 2. Verify scientific names with specific data sources:
 
-   ```
-   python pygnverifier/gnverifier_cli.py verify -n "Isoetes longissimum" -d 1 -d 12 --with-all-matches
-   ```
+```bash
+python pygnverifier/cli.py verify -n "Isoetes longissimum" -d 1 -d 12 --with-all-matches
+```
 
-   This command will verify the name "Isoetes longissimum" using data sources with IDs 1 and 12, and return all possible matches.
+This command will verify the name "Isoetes longissimum" using data sources with IDs 1 and 12, and return all possible matches.
 
 3. List available data sources:
-   ```
-   python pygnverifier/gnverifier_cli.py data-sources
-   ```
-   This command will list all available data sources from the GNVerifier API.
+
+```bash
+python pygnverifier/cli.py data-sources
+```
+
+This command will list all available data sources from the GNVerifier API.
 
 ## Getting started with your project
 
