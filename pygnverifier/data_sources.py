@@ -1,11 +1,8 @@
 """Submodule for handling data sources from the Global Names Verifier API."""
 
-import json
-import sys
+from collections.abc import Iterable
 from typing import Optional
 
-import requests
-from rich import print
 from rich.console import Console
 from rich.table import Table
 
@@ -83,6 +80,16 @@ class DataSource:
             self.updated_at,
         ]
 
+    @property
+    def arg_name(self) -> str:
+        """Return the argument name for the data source."""
+        return self.title.replace(" ", "-").replace("_", "-").lower()
+
+    @property
+    def short_arg_name(self) -> str:
+        """Return the argument name for the data source."""
+        return self.title_short.replace(" ", "-").replace("_", "-").lower()
+
     def to_dict(self) -> dict:
         """Return a dictionary representation of the data source object."""
         return {
@@ -104,10 +111,10 @@ class DataSource:
 class DataSourceClient(BaseAPI):
     """Class to interact with the data sources endpoint of the Global Names Verifier API."""
 
-    def __init__(self) -> None:
-        super().__init__(base_url="https://verifier.globalnames.org/api/v1")
+    def __init__(self, email: str) -> None:
+        super().__init__(email)
 
-    def get_data_sources(self) -> list[DataSource]:
+    def iter_data_sources(self) -> Iterable[DataSource]:
         """Get a list of data sources from the Global Names Verifier API.
 
         Returns
@@ -115,27 +122,23 @@ class DataSourceClient(BaseAPI):
         list[DataSource]
             A list of DataSource objects with information about each data source.
         """
-        response = self._get("data_sources")  # Using the base class method
-
-        data_sources_data = response.json()
-        data_sources = [
-            DataSource(
-                datasource_id=ds["id"],
-                uuid=ds.get("uuid", "N/A"),  # Use default if key missing
-                title=ds.get("title", "N/A"),  # Use default if key missing
-                title_short=ds.get("titleShort", "N/A"),  # Use default if key missing
-                version=ds.get("version", "N/A"),  # Use default if key missing
-                description=ds.get("description", "No description available"),  # Use default if key missing
-                home_url=ds.get("homeURL", "N/A"),  # Use default if key missing
-                is_outlink_ready=ds.get("isOutlinkReady", False),  # Use default if key missing
-                curation=ds.get("curation", "Unknown"),  # Use default if key missing
-                has_taxon_data=ds.get("hasTaxonData", False),  # Use default if key missing
-                record_count=ds.get("recordCount", 0),  # Use default if key missing
-                updated_at=ds.get("updatedAt", "N/A"),  # Use default if key missing
+        for raw_data_source in self._get("data_sources"):
+            yield DataSource(
+                datasource_id=raw_data_source["id"],
+                uuid=raw_data_source.get("uuid", "N/A"),  # Use default if key missing
+                title=raw_data_source.get("title", "N/A"),  # Use default if key missing
+                title_short=raw_data_source.get("titleShort", "N/A"),  # Use default if key missing
+                version=raw_data_source.get("version", "N/A"),  # Use default if key missing
+                description=raw_data_source.get(
+                    "description", "No description available"
+                ),  # Use default if key missing
+                home_url=raw_data_source.get("homeURL", "N/A"),  # Use default if key missing
+                is_outlink_ready=raw_data_source.get("isOutlinkReady", False),  # Use default if key missing
+                curation=raw_data_source.get("curation", "Unknown"),  # Use default if key missing
+                has_taxon_data=raw_data_source.get("hasTaxonData", False),  # Use default if key missing
+                record_count=raw_data_source.get("recordCount", 0),  # Use default if key missing
+                updated_at=raw_data_source.get("updatedAt", "N/A"),  # Use default if key missing
             )
-            for ds in data_sources_data
-        ]
-        return data_sources
 
     def display_data_sources(
         self, data_sources: list[DataSource], sort_key: Optional[str] = None, descending: bool = True
@@ -169,44 +172,3 @@ class DataSourceClient(BaseAPI):
 
         console = Console()
         console.print(table)
-
-    def export_data_sources_as_json(self, data_sources: list[DataSource], file_path: Optional[str] = None) -> str:
-        """Export data sources as a raw JSON string or save to a file.
-
-        Parameters
-        ----------
-        data_sources : list[DataSource]
-            A list of DataSource objects to be exported.
-        file_path : Optional[str] = None
-            Path to save the JSON file. If None, the JSON string will be returned.
-
-        Returns
-        -------
-        str
-            A JSON string representing the list of data sources if file_path is None.
-        """
-        json_data = json.dumps([ds.to_dict() for ds in data_sources], indent=2)
-        if file_path:
-            with open(file_path, "w") as json_file:
-                json_file.write(json_data)
-        return json_data
-
-
-if __name__ == "__main__":
-    client = DataSourceClient()
-    try:
-        data_sources = client.get_data_sources()
-
-        # Example usage
-        # Export data sources as a JSON string
-        json_data = client.export_data_sources_as_json(data_sources)
-
-        # Write JSON data directly to stdout
-        # Here we avoid using print() to prevent any extra characters being added
-        sys.stdout.write(json_data + "\n")
-
-        # Or save the JSON to a file
-        # client.export_data_sources_as_json(data_sources, file_path="data_sources.json")
-
-    except requests.RequestException as e:
-        print(f"An error occurred: {e}")

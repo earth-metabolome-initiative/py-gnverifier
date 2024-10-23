@@ -5,4 +5,4 @@
 [![Commit activity](https://img.shields.io/github/commit-activity/m/earth-metabolome-initiative/pygnverifier)](https://img.shields.io/github/commit-activity/m/earth-metabolome-initiative/pygnverifier)
 [![License](https://img.shields.io/github/license/earth-metabolome-initiative/pygnverifier)](https://img.shields.io/github/license/earth-metabolome-initiative/pygnverifier)
 
-A python wrapper for gnverifier
+A python wrapper for Verifier

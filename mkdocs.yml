@@ -1,7 +1,7 @@
 site_name: pygnverifier
 repo_url: https://github.com/earth-metabolome-initiative/pygnverifier
 site_url: https://earth-metabolome-initiative.github.io/pygnverifier
-site_description: A python wrapper for gnverifier
+site_description: A python wrapper for Verifier
 site_author: Pierre-Marie Allard
 edit_uri: edit/main/docs/
 repo_name: earth-metabolome-initiative/pygnverifier

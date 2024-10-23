@@ -35,7 +35,7 @@ This command will verify the name "Isoetes longissimum" using data sources with 
 python pygnverifier/cli.py data-sources
 ```
 
-This command will list all available data sources from the GNVerifier API.
+This command will list all available data sources from the Verifier API.
 
 ## Getting started with your project
 

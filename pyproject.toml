@@ -12,12 +12,12 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-tqdm = "^4.66.5"
 requests = "^2.32.3"
-click = "^8.1.7"
 types-requests = "^2.32.0.20241016"
-types-tqdm = "^4.66.0.20240417"
 rich = "^13.9.3"
+cache-decorator = "^2.2.0"
+compress-json = "^1.1.0"
+pandas = "^2.2.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
@@ -105,6 +105,8 @@ skip_empty = true
 branch = true
 source = ["pygnverifier"]
 
-
 [tool.ruff.per-file-ignores]
 "tests/*" = ["S101"]
+
+[project.scripts]
+pygnverifier = "pygnverifier.cli:main"

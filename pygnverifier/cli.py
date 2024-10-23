@@ -1,142 +1,213 @@
-from typing import Optional
+from argparse import ArgumentParser, Namespace
+from typing import Any, Optional
 
-import click
-import requests
+import compress_json  # type: ignore[import-untyped]
+import pandas as pd
 
 from pygnverifier.data_sources import DataSourceClient
-from pygnverifier.verification import GNVerifier, VerificationRequest
+from pygnverifier.exceptions import UnsupportedOutputFormatError
+from pygnverifier.verification import VerificationRequestConfiguration, Verifier
+
+COMPRESSIONS: list[str] = ["gz", "xz", ""]
+SEPARATORS: dict[str, str] = {
+    "csv": ",",
+    "tsv": "\t",
+    "ssv": " ",
+}
 
 
-@click.group()
-def cli() -> None:
+def verify(args: Namespace) -> None:
     """
-    Command Line Interface for interacting with the Global Names Verifier API.
+    Verify scientific names using the Verifier API.
     """
-    pass
-
-
-@click.command()
-@click.option("--names", "-n", required=True, help="Comma-separated list of scientific names to verify.")
-@click.option("--data-sources", "-d", help="Comma-separated list of data source IDs to limit the search.")
-@click.option("--with-all-matches", is_flag=True, help="Return all possible matches.")
-@click.option("--with-capitalization", is_flag=True, help="Consider capitalization when verifying.")
-@click.option("--with-species-group", is_flag=True, help="Include species group in the verification.")
-@click.option("--with-uninomial-fuzzy-match", is_flag=True, help="Enable fuzzy matching for uninomial names.")
-@click.option("--with-stats", is_flag=True, help="Return statistics along with the results.")
-@click.option("--main-taxon-threshold", default=0.6, type=float, help="Set the threshold for main taxon match.")
-@click.option("--verbose", is_flag=True, help="Enable verbose mode.")
-@click.option(
-    "--output-format",
-    type=click.Choice(["pretty", "json"], case_sensitive=False),
-    default="pretty",
-    help="Choose the output format: pretty or raw JSON.",
-)
-@click.option(
-    "--output-file",
-    type=str,
-    default=None,
-    help="Specify a file path to save the output as JSON.",
-)
-def verify(
-    names: str,
-    data_sources: Optional[str] = None,
-    with_all_matches: bool = False,
-    with_capitalization: bool = False,
-    with_species_group: bool = False,
-    with_uninomial_fuzzy_match: bool = False,
-    with_stats: bool = False,
-    main_taxon_threshold: float = 0.6,
-    verbose: bool = False,
-    output_format: str = "pretty",
-    output_file: Optional[str] = None,
-) -> None:
-    """
-    Verify scientific names using the GNVerifier API.
-    """
-    # Parse comma-separated names and data sources
-    names_list = [name.strip() for name in names.split(",")]
-    data_sources_list = [int(ds.strip()) for ds in data_sources.split(",")] if data_sources else None
-
     # Create a verification request
-    request = VerificationRequest(
-        names=names_list,
-        data_sources=data_sources_list,
-        with_all_matches=with_all_matches,
-        with_capitalization=with_capitalization,
-        with_species_group=with_species_group,
-        with_uninomial_fuzzy_match=with_uninomial_fuzzy_match,
-        with_stats=with_stats,
-        main_taxon_threshold=main_taxon_threshold,
-    )
+    configuration: VerificationRequestConfiguration = VerificationRequestConfiguration(
+        email=args.email
+    ).set_main_taxon_threshold(args.main_taxon_threshold)
+
+    if args.with_all_matches:
+        configuration = configuration.with_all_matches()
+
+    if args.with_capitalization:
+        configuration = configuration.with_capitalization()
+
+    if args.with_species_group:
+        configuration = configuration.with_species_group()
+
+    if args.with_uninomial_fuzzy_match:
+        configuration = configuration.with_uninomial_fuzzy_match()
+
+    if args.with_stats:
+        configuration = configuration.with_stats()
+
+    # We iterate all of the arguments in the name space that start with
+    # 'include_' and add the data sources to the request configuration.
+    for arg_name in args.__dict__:
+        if arg_name.startswith("include_") and args.__dict__[arg_name]:
+            data_source_name = arg_name.replace("include_", "")
+            configuration = configuration.include_data_source(data_source_name)
 
     # Initialize the verifier and send the request
-    verifier = GNVerifier(verbose=verbose)
-    response = verifier.verify(request)
+    verifier = Verifier(configuration)
+    response = verifier.verify(args.names)
 
-    if output_format.lower() == "json":
-        json_data = response.export_as_json()
-        if output_file:
-            with open(output_file, "w") as file:
-                file.write(json_data)
-            print(f"Data exported to {output_file}")
-        else:
-            print(json_data)
-    else:
-        # Print response details in a pretty format
-        response.print_formatted_names()
+    if any(args.output.endswith(f".json{compression}") for compression in COMPRESSIONS):
+        compress_json.dump(response.to_dict(), args.output)
+        return None
+
+    raise UnsupportedOutputFormatError(
+        output_format=args.output,
+        available_output_formats=[f".json.{compression}" for compression in COMPRESSIONS],
+    )
 
 
-@click.command()
-@click.option(
-    "--output-format",
-    type=click.Choice(["pretty", "json"], case_sensitive=False),
-    default="pretty",
-    help="Choose the output format: pretty table or raw JSON.",
-)
-@click.option(
-    "--sort-key",
-    type=str,
-    default=None,
-    help="Specify the field to sort the data sources by (e.g., 'record_count', 'title').",
-)
-@click.option(
-    "--descending",
-    type=bool,
-    default=True,
-    help="Set the order of sorting. True for descending, False for ascending.",
-)
-@click.option(
-    "--output-file",
-    type=str,
-    default=None,
-    help="Specify a file path to save the output as JSON.",
-)
-def data_sources(output_format: str, sort_key: Optional[str], descending: bool, output_file: Optional[str]) -> None:
+def data_sources(args: Namespace) -> None:
     """
-    List all available data sources from the GNVerifier API in different formats.
+    List all available data sources from the Verifier API in different formats.
     """
-    client = DataSourceClient()
-    try:
-        data_sources = client.get_data_sources()
+    client = DataSourceClient(args.email)
+    data_sources: list[dict[str, Any]] = [data_source.to_dict() for data_source in client.iter_data_sources()]
 
-        if output_format.lower() == "pretty":
-            client.display_data_sources(data_sources, sort_key=sort_key, descending=descending)
-        elif output_format.lower() == "json":
-            json_data = client.export_data_sources_as_json(data_sources)
-            if output_file:
-                with open(output_file, "w") as file:
-                    file.write(json_data)
-                print(f"Data exported to {output_file}")
-            else:
-                print(json_data)
+    if any(args.output.endswith(f".json{compression}") for compression in COMPRESSIONS):
+        compress_json.dump(data_sources, args.output)
+        return None
 
-    except requests.RequestException as e:
-        print(f"An error occurred: {e}")
+    separator: Optional[str] = None
+
+    for extension in SEPARATORS:
+        for compression in COMPRESSIONS:
+            if args.output.endswith(f".{extension}{compression}"):
+                separator = SEPARATORS[extension]
+                break
+        if separator is not None:
+            break
+
+    if separator is not None:
+        pd.DataFrame(data_sources).to_csv(
+            args.output,
+            sep=separator,
+            index=False,
+        )
+        return None
+
+    raise UnsupportedOutputFormatError(
+        output_format=args.output,
+        available_output_formats=list(SEPARATORS.keys()) + [f".json.{compression}" for compression in COMPRESSIONS],
+    )
 
 
-# Add commands to the CLI
-cli.add_command(verify)
-cli.add_command(data_sources)
+def build_data_sources_parser(parser: ArgumentParser) -> None:
+    """Build the parser for the data-sources subcommand."""
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        required=True,
+        help="Specify a file path to save.",
+    )
+    parser.add_argument(
+        "--email",
+        "-e",
+        type=str,
+        required=True,
+        help="Email address for the API provided to contact you in case of issues.",
+    )
+    parser.set_defaults(func=data_sources)
 
-if __name__ == "__main__":
-    cli()
+
+def build_verify_parser(parser: ArgumentParser) -> None:
+    """Build the parser for the verify subcommand."""
+    parser.add_argument(
+        "--names",
+        "-n",
+        type=list,
+        required=True,
+        help="List of scientific names to verify.",
+    )
+
+    parser.add_argument(
+        "--email",
+        "-e",
+        type=str,
+        required=True,
+        help="Email address for the API provided to contact you in case of issues.",
+    )
+
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        required=True,
+        help="Output format for the verification results.",
+    )
+
+    parser.add_argument(
+        "--with-all-matches",
+        action="store_true",
+        required=False,
+        help="Include all matches in the verification results.",
+    )
+
+    parser.add_argument(
+        "--with-capitalization",
+        action="store_true",
+        required=False,
+        help="Include capitalization in the verification results.",
+    )
+
+    parser.add_argument(
+        "--with-species-group",
+        action="store_true",
+        required=False,
+        help="Include species group in the verification results.",
+    )
+
+    parser.add_argument(
+        "--with-uninomial-fuzzy-match",
+        action="store_true",
+        required=False,
+        help="Include uninomial fuzzy match in the verification results.",
+    )
+
+    parser.add_argument(
+        "--with-stats",
+        action="store_true",
+        required=False,
+        help="Include statistics in the verification results.",
+    )
+
+    parser.add_argument(
+        "--main-taxon-threshold",
+        type=float,
+        default=0.6,
+        required=False,
+        help="Main taxon threshold for the verification.",
+    )
+
+    client = DataSourceClient(email="tmp@tmp.com")
+    for data_source in client.iter_data_sources():
+        parser.add_argument(
+            f"--include-{data_source.arg_name}",
+            action="store_true",
+            required=False,
+            help=f"Include '{data_source.title}' in the verification. {data_source.description}",
+        )
+        if data_source.arg_name != data_source.short_arg_name:
+            parser.add_argument(
+                f"--include-{data_source.short_arg_name}",
+                action="store_true",
+                required=False,
+                help=f"Include '{data_source.title}' in the verification. {data_source.description}",
+            )
+
+
+def main() -> None:
+    """Main entry point for the CLI."""
+    parser: ArgumentParser = ArgumentParser()
+    subparsers = parser.add_subparsers(title="subcommands", dest="subcommand")
+    build_data_sources_parser(subparsers.add_parser("data-sources", help="List all available data sources."))
+    build_verify_parser(subparsers.add_parser("verify", help="Verify scientific names."))
+
+    args = parser.parse_args()
+
+    args.func(args)

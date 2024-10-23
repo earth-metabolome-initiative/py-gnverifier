@@ -1,34 +1,28 @@
-from unittest.mock import MagicMock, patch
+"""Test whether the verification functions work as expected."""
 
+import compress_json
 import pytest
 
-from pygnverifier.verification import GNVerifier, GNVerifierResponse, VerificationRequest
+from pygnverifier import VerificationRequestConfiguration, Verifier, VerifierResponse
+from pygnverifier.exceptions import UnknownDataSourceError
 
 
-@pytest.fixture
-def verification_request():
-    return VerificationRequest(names=["Pomatomus saltatrix"])
+def test_verify():
+    """Test the verify function."""
+
+    configuration: VerificationRequestConfiguration = VerificationRequestConfiguration(
+        email="tmp@tmp.com"
+    ).include_data_source("Catalogue of Life")
+
+    verifier: Verifier = Verifier(configuration)
+
+    for name in compress_json.local_load("data/names_to_resolve.json"):
+        result: VerifierResponse = verifier.verify([name])
+        print(result)
 
 
-@patch("requests.post")
-def test_verify_request(mock_post, verification_request):
-    # Mock the response from the GNVerifier API
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "metadata": {"namesNumber": 1},
-        "names": [{"name": "Pomatomus saltatrix", "matchType": "Exact"}],
-    }
-    mock_post.return_value = mock_response
+def test_improper_parametrization_verify():
+    """Test the verify function."""
 
-    verifier = GNVerifier()
-    response = verifier.verify(verification_request)
-
-    assert isinstance(response, GNVerifierResponse)
-
-    # Access metadata attributes for comparison instead of comparing directly to a dictionary
-    metadata = response.get_metadata()
-    assert metadata.names_number == 1
-
-    assert len(response.get_names()) == 1
-    assert response.get_names()[0].input_name == "Pomatomus saltatrix"
+    with pytest.raises(UnknownDataSourceError):
+        VerificationRequestConfiguration(email="tmp@tmp.com").include_data_source("open tree")
