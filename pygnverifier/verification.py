@@ -1,5 +1,6 @@
 """Improved module to call the gnverifier API."""
 
+import json
 import time
 import warnings
 from typing import Any, Optional
@@ -28,9 +29,9 @@ class VerificationRequest:
 
         Parameters
         ----------
-        names : List[str]
+        names : list[str]
             List of scientific names to be verified.
-        data_sources : Optional[List[int]], optional
+        data_sources : Optional[list[int]], optional
             List of data source IDs to limit the search, by default None.
         with_all_matches : bool, optional
             Return all possible matches, by default False.
@@ -119,41 +120,178 @@ class GNVerifierResponse:
 
     def __init__(self, data: dict):
         """Initialize the GNVerifierResponse with the API response data."""
-        self.metadata = data.get("metadata", {})
-        self.names = data.get("names", [])
+        self.metadata = Metadata(data.get("metadata", {}))
+        self.names = [NameResult(name_data) for name_data in data.get("names", [])]
 
-    def get_metadata(self) -> Any:
+    def get_metadata(self) -> "Metadata":
         """Return metadata from the response."""
         return self.metadata
 
-    def get_names(self) -> list[dict]:
-        """Return a more user-friendly representation of the names."""
-        formatted_names = []
-        for name_data in self.names:
-            best_result = name_data.get("bestResult", {})
-            formatted_name = {
-                "input_name": name_data.get("name"),
-                "match_type": name_data.get("matchType"),
-                "best_matched_name": best_result.get("matchedName", "N/A"),
-                "taxonomic_status": best_result.get("taxonomicStatus", "N/A"),
-                "classification_path": best_result.get("classificationPath", "N/A"),
-                "source_title": best_result.get("dataSourceTitleShort", "N/A"),
-                "source_outlink": best_result.get("outlink", "N/A"),
-            }
-            formatted_names.append(formatted_name)
-        return formatted_names
+    def get_names(self) -> list["NameResult"]:
+        """Return a list of NameResult objects representing the names."""
+        return self.names
 
     def print_formatted_names(self) -> None:
         """Print formatted names in a more readable way."""
         for name in self.get_names():
-            print(f"Input Name: {name['input_name']}")
-            print(f"  Match Type: {name['match_type']}")
-            print(f"  Best Matched Name: {name['best_matched_name']}")
-            print(f"  Taxonomic Status: {name['taxonomic_status']}")
-            print(f"  Classification Path: {name['classification_path']}")
-            print(f"  Source Title: {name['source_title']}")
-            print(f"  Source Link: {name['source_outlink']}")
-            print()
+            name.print_details()
+
+    def print_metadata(self) -> None:
+        """Print the metadata information in a readable format."""
+        self.metadata.print_details()
+
+    def export_as_json(self, file_path: Optional[str] = None) -> str:
+        """Export the GNVerifier response as a JSON string or save to a file.
+
+        Parameters
+        ----------
+        file_path : Optional[str]
+            Path to save the JSON file. If None, the JSON string will be returned.
+
+        Returns
+        -------
+        str
+            A JSON string representing the response if file_path is None.
+        """
+        json_data = json.dumps(
+            {"metadata": self.metadata.to_dict(), "names": [name.to_dict() for name in self.names]}, indent=2
+        )
+
+        if file_path:
+            with open(file_path, "w") as json_file:
+                json_file.write(json_data)
+        return json_data
+
+
+class Metadata:
+    """Class to encapsulate metadata from the GNVerifier API response."""
+
+    def __init__(self, data: dict):
+        self.names_number = data.get("namesNumber", 0)
+        self.with_stats = data.get("withStats", False)
+        self.data_sources = data.get("dataSources", [])
+        self.main_taxon_threshold = data.get("mainTaxonThreshold", 0.0)
+        self.stats_names_num = data.get("statsNamesNum", 0)
+        self.main_taxon = data.get("mainTaxon", "N/A")
+        self.main_taxon_percentage = data.get("mainTaxonPercentage", 0.0)
+        self.kingdom = data.get("kingdom", "N/A")
+        self.kingdom_percentage = data.get("kingdomPercentage", 0.0)
+        self.kingdoms = data.get("kingdoms", [])
+
+    def print_details(self) -> None:
+        """Print metadata details in a readable format."""
+        print("Metadata Information:")
+        print(f"  Number of Names: {self.names_number}")
+        print(f"  With Stats: {self.with_stats}")
+        print(f"  Data Sources: {', '.join(map(str, self.data_sources))}")
+        print(f"  Main Taxon Threshold: {self.main_taxon_threshold}")
+        print(f"  Stats Names Number: {self.stats_names_num}")
+        print(f"  Main Taxon: {self.main_taxon} ({self.main_taxon_percentage * 100:.2f}%)")
+        print(f"  Kingdom: {self.kingdom} ({self.kingdom_percentage * 100:.2f}%)")
+        print("  Kingdoms:")
+        for kingdom in self.kingdoms:
+            print(f"    - {kingdom['kingdomName']}: {kingdom['namesNumber']} ({kingdom['percentage'] * 100:.2f}%)")
+
+    def to_dict(self) -> dict:
+        """Return a dictionary representation of the metadata."""
+        return {
+            "namesNumber": self.names_number,
+            "withStats": self.with_stats,
+            "dataSources": self.data_sources,
+            "mainTaxonThreshold": self.main_taxon_threshold,
+            "statsNamesNum": self.stats_names_num,
+            "mainTaxon": self.main_taxon,
+            "mainTaxonPercentage": self.main_taxon_percentage,
+            "kingdom": self.kingdom,
+            "kingdomPercentage": self.kingdom_percentage,
+            "kingdoms": self.kingdoms,
+        }
+
+
+class NameResult:
+    """Class to encapsulate name result information from the GNVerifier API response."""
+
+    def __init__(self, data: dict):
+        self.input_name = data.get("name", "N/A")
+        self.cardinality = data.get("cardinality", 0)
+        self.match_type = data.get("matchType", "N/A")
+
+        best_result = data.get("bestResult", {})
+        self.data_source_id = best_result.get("dataSourceId", "N/A")
+        self.data_source_title = best_result.get("dataSourceTitleShort", "N/A")
+        self.curation = best_result.get("curation", "N/A")
+        self.record_id = best_result.get("recordId", "N/A")
+        self.outlink = best_result.get("outlink", "N/A")
+        self.entry_date = best_result.get("entryDate", "N/A")
+        self.sort_score = best_result.get("sortScore", 0.0)
+        self.matched_name_id = best_result.get("matchedNameID", "N/A")
+        self.matched_name = best_result.get("matchedName", "N/A")
+        self.matched_cardinality = best_result.get("matchedCardinality", 0)
+        self.matched_canonical_simple = best_result.get("matchedCanonicalSimple", "N/A")
+        self.matched_canonical_full = best_result.get("matchedCanonicalFull", "N/A")
+        self.current_record_id = best_result.get("currentRecordId", "N/A")
+        self.current_name_id = best_result.get("currentNameId", "N/A")
+        self.current_name = best_result.get("currentName", "N/A")
+        self.current_cardinality = best_result.get("currentCardinality", 0)
+        self.current_canonical_simple = best_result.get("currentCanonicalSimple", "N/A")
+        self.current_canonical_full = best_result.get("currentCanonicalFull", "N/A")
+        self.taxonomic_status = best_result.get("taxonomicStatus", "N/A")
+        self.is_synonym = best_result.get("isSynonym", False)
+        self.classification_path = best_result.get("classificationPath", "N/A")
+        self.classification_ranks = best_result.get("classificationRanks", "N/A")
+        self.classification_ids = best_result.get("classificationIds", "N/A")
+        self.edit_distance = best_result.get("editDistance", 0)
+        self.stem_edit_distance = best_result.get("stemEditDistance", 0)
+        self.match_type_detail = best_result.get("matchType", "N/A")
+        self.score_details = best_result.get("scoreDetails", {})
+
+    def print_details(self) -> None:
+        """Print name result details in a readable format."""
+        print(f"Input Name: {self.input_name}")
+        print(f"  Match Type: {self.match_type}")
+        print(f"  Best Matched Name: {self.matched_name}")
+        print(f"  Taxonomic Status: {self.taxonomic_status}")
+        print(f"  Classification Path: {self.classification_path}")
+        print(f"  Source Title: {self.data_source_title}")
+        print(f"  Source Link: {self.outlink}")
+        print()
+
+    def to_dict(self) -> dict:
+        """Return a dictionary representation of the name result."""
+        return {
+            "inputName": self.input_name,
+            "cardinality": self.cardinality,
+            "matchType": self.match_type,
+            "bestResult": {
+                "dataSourceId": self.data_source_id,
+                "dataSourceTitleShort": self.data_source_title,
+                "curation": self.curation,
+                "recordId": self.record_id,
+                "outlink": self.outlink,
+                "entryDate": self.entry_date,
+                "sortScore": self.sort_score,
+                "matchedNameID": self.matched_name_id,
+                "matchedName": self.matched_name,
+                "matchedCardinality": self.matched_cardinality,
+                "matchedCanonicalSimple": self.matched_canonical_simple,
+                "matchedCanonicalFull": self.matched_canonical_full,
+                "currentRecordId": self.current_record_id,
+                "currentNameId": self.current_name_id,
+                "currentName": self.current_name,
+                "currentCardinality": self.current_cardinality,
+                "currentCanonicalSimple": self.current_canonical_simple,
+                "currentCanonicalFull": self.current_canonical_full,
+                "taxonomicStatus": self.taxonomic_status,
+                "isSynonym": self.is_synonym,
+                "classificationPath": self.classification_path,
+                "classificationRanks": self.classification_ranks,
+                "classificationIds": self.classification_ids,
+                "editDistance": self.edit_distance,
+                "stemEditDistance": self.stem_edit_distance,
+                "matchType": self.match_type_detail,
+                "scoreDetails": self.score_details,
+            },
+        }
 
 
 # Example usage
@@ -174,5 +312,14 @@ if __name__ == "__main__":
     gn = GNVerifier(verbose=True)
     response = gn.verify(request)
 
-    # Print response details
-    response.print_formatted_names()
+    # response.print_metadata()
+    print(response.get_names()[0].is_synonym)
+
+    # # Print response details
+    # # response.print_formatted_names()
+    # # Export response to JSON
+    # json_data = response.export_as_json()
+
+    # # Write JSON data directly to stdout
+    # # Here we avoid using print() to prevent any extra characters being added
+    # sys.stdout.write(json_data + "\n")

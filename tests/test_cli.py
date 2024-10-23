@@ -19,24 +19,40 @@ def test_verify_command(mock_verification_request, mock_gnverifier, runner):
     mock_gnverifier.return_value = mock_gnverifier_instance
     mock_response = MagicMock()
     mock_gnverifier_instance.verify.return_value = mock_response
-    mock_response.get_names.return_value = [
-        {
-            "input_name": "Pomatomus saltatrix",
-            "match_type": "Exact",
-            "best_matched_name": "Pomatomus saltatrix",
-            "taxonomic_status": "Accepted",
-            "classification_path": "Animalia|Chordata|Vertebrata|...",
-            "source_title": "Catalogue of Life",
-            "source_outlink": "https://www.catalogueoflife.org/data/taxon/4LQWC",
-        }
-    ]
 
-    result = runner.invoke(cli, ["verify", "-n", "Pomatomus saltatrix, Bubo bubo", "--with-stats", "--verbose"])
+    # Mock the pretty print and export as JSON behaviors
+    with (
+        patch.object(mock_response, "print_formatted_names") as mock_print,
+        patch.object(
+            mock_response, "export_as_json", return_value='{"input_name": "Pomatomus saltatrix"}'
+        ) as mock_export,
+    ):
+        # Test the pretty output format
+        result = runner.invoke(
+            cli,
+            [
+                "verify",
+                "-n",
+                "Pomatomus saltatrix, Bubo bubo",
+                "--with-stats",
+                "--verbose",
+                "--output-format",
+                "pretty",
+            ],
+        )
+        assert result.exit_code == 0
+        mock_print.assert_called_once()
+        mock_export.assert_not_called()
 
-    assert result.exit_code == 0
-    assert "Input Name: Pomatomus saltatrix" in result.output
-    assert "Match Type: Exact" in result.output
-    assert "Best Matched Name: Pomatomus saltatrix" in result.output
+        # Reset the mock to verify JSON output behavior
+        mock_print.reset_mock()
+
+        # Test the JSON output format
+        result = runner.invoke(cli, ["verify", "-n", "Pomatomus saltatrix, Bubo bubo", "--output-format", "json"])
+        assert result.exit_code == 0
+        mock_export.assert_called_once()
+        mock_print.assert_not_called()
+        assert '{"input_name": "Pomatomus saltatrix"}' in result.output
 
 
 @patch("pygnverifier.cli.DataSourceClient")  # Adjusted path to match cli.py imports
@@ -119,3 +135,54 @@ def test_data_sources_command_json_to_file(mock_data_source_client, runner, tmp_
     with open(output_file) as file:
         content = file.read()
         assert "Catalogue of Life" in content
+
+
+# Example Usage of the CLI
+
+#     Verify scientific names with pretty output:
+
+#     sh
+
+# python pygnverifier/cli.py verify -n "Pomatomus saltatrix, Bubo bubo" --with-stats --verbose
+
+# This command verifies the scientific names "Pomatomus saltatrix" and "Bubo bubo" and displays the results in a formatted way.
+
+# Verify scientific names with JSON output:
+
+# sh
+
+# python pygnverifier/cli.py verify -n "Pomatomus saltatrix, Bubo bubo" --with-stats --verbose --output-format json
+
+# This command verifies the names and returns the output in JSON format.
+
+# Export verification results to a JSON file:
+
+# sh
+
+# python pygnverifier/cli.py verify -n "Pomatomus saltatrix, Bubo bubo" --with-stats --output-format json --output-file verified.json
+
+# This command exports the verification results as a JSON file named verified.json.
+
+# Display data sources in a pretty table:
+
+# sh
+
+# python pygnverifier/cli.py data-sources --output-format pretty --sort-key record_count --descending True
+
+# This command displays the data sources in a formatted table, sorted by record count in descending order.
+
+# Export data sources to a JSON file:
+
+# sh
+
+# python pygnverifier/cli.py data-sources --output-format json --output-file data_sources.json
+
+# This command exports the data sources as a JSON file named data_sources.json.
+
+# Display data sources in JSON format in the terminal:
+
+# sh
+
+# python pygnverifier/cli.py data-sources --output-format json
+
+# This command outputs the data sources in raw JSON format to the terminal.

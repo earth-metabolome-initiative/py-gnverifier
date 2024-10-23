@@ -25,6 +25,18 @@ def cli() -> None:
 @click.option("--with-stats", is_flag=True, help="Return statistics along with the results.")
 @click.option("--main-taxon-threshold", default=0.6, type=float, help="Set the threshold for main taxon match.")
 @click.option("--verbose", is_flag=True, help="Enable verbose mode.")
+@click.option(
+    "--output-format",
+    type=click.Choice(["pretty", "json"], case_sensitive=False),
+    default="pretty",
+    help="Choose the output format: pretty or raw JSON.",
+)
+@click.option(
+    "--output-file",
+    type=str,
+    default=None,
+    help="Specify a file path to save the output as JSON.",
+)
 def verify(
     names: str,
     data_sources: Optional[str] = None,
@@ -35,6 +47,8 @@ def verify(
     with_stats: bool = False,
     main_taxon_threshold: float = 0.6,
     verbose: bool = False,
+    output_format: str = "pretty",
+    output_file: Optional[str] = None,
 ) -> None:
     """
     Verify scientific names using the GNVerifier API.
@@ -59,17 +73,17 @@ def verify(
     verifier = GNVerifier(verbose=verbose)
     response = verifier.verify(request)
 
-    # Print response details
-    formatted_names = response.get_names()
-    for name in formatted_names:
-        print(f"Input Name: {name['input_name']}")
-        print(f"  Match Type: {name['match_type']}")
-        print(f"  Best Matched Name: {name['best_matched_name']}")
-        print(f"  Taxonomic Status: {name['taxonomic_status']}")
-        print(f"  Classification Path: {name['classification_path']}")
-        print(f"  Source Title: {name['source_title']}")
-        print(f"  Source Link: {name['source_outlink']}")
-        print()
+    if output_format.lower() == "json":
+        json_data = response.export_as_json()
+        if output_file:
+            with open(output_file, "w") as file:
+                file.write(json_data)
+            print(f"Data exported to {output_file}")
+        else:
+            print(json_data)
+    else:
+        # Print response details in a pretty format
+        response.print_formatted_names()
 
 
 @click.command()
@@ -126,49 +140,3 @@ cli.add_command(data_sources)
 
 if __name__ == "__main__":
     cli()
-
-
-"""
-Examples on how to use the CLI:
-
-1. Verify scientific names:
-   ```
-   python pygnverifier/cli.py verify -n "Pomatomus saltatrix, Bubo bubo" --with-stats --verbose
-   ```
-   This command will verify the scientific names "Pomatomus saltatrix" and "Bubo bubo", include statistics, and enable verbose mode.
-
-2. Verify scientific names with specific data sources:
-   ```
-   python pygnverifier/cli.py verify -n "Isoetes longissimum" -d "1, 12" --with-all-matches
-   ```
-   This command will verify the name "Isoetes longissimum" using data sources with IDs 1 and 12, and return all possible matches.
-
-3. List available data sources:
-   ```
-   python pygnverifier/cli.py data-sources
-   ```
-   This command will list all available data sources from the GNVerifier API.
-"""
-
-
-"""
-Examples on how to use the CLI:
-
-1. Display data sources in a pretty table:
-   ```
-   python pygnverifier/cli.py data-sources --format pretty --sort-key record_count --descending True
-   ```
-   This command will display the data sources in a formatted table, sorted by record count in descending order.
-
-2. Export data sources to a JSON file:
-   ```
-   python pygnverifier/cli.py data-sources --format json --output-file data_sources.json
-   ```
-   This command will export the data sources as a JSON file named 'data_sources.json'.
-
-3. Display data sources in JSON format in the terminal:
-   ```
-   python pygnverifier/cli.py data-sources --format json
-   ```
-   This command will output the data sources in raw JSON format to the terminal.
-"""

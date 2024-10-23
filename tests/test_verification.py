@@ -25,6 +25,10 @@ def test_verify_request(mock_post, verification_request):
     response = verifier.verify(verification_request)
 
     assert isinstance(response, GNVerifierResponse)
-    assert response.get_metadata() == {"namesNumber": 1}
+
+    # Access metadata attributes for comparison instead of comparing directly to a dictionary
+    metadata = response.get_metadata()
+    assert metadata.names_number == 1
+
     assert len(response.get_names()) == 1
-    assert response.get_names()[0]["input_name"] == "Pomatomus saltatrix"
+    assert response.get_names()[0].input_name == "Pomatomus saltatrix"
