@@ -1,5 +1,7 @@
 """Submodule for handling data sources from the Global Names Verifier API."""
 
+import json
+import sys
 from typing import Optional
 
 import requests
@@ -81,6 +83,23 @@ class DataSource:
             self.updated_at,
         ]
 
+    def to_dict(self) -> dict:
+        """Return a dictionary representation of the data source object."""
+        return {
+            "id": self.datasource_id,
+            "uuid": self.uuid,
+            "title": self.title,
+            "title_short": self.title_short,
+            "version": self.version,
+            "description": self.description,
+            "home_url": self.home_url,
+            "is_outlink_ready": self.is_outlink_ready,
+            "curation": self.curation,
+            "has_taxon_data": self.has_taxon_data,
+            "record_count": self.record_count,
+            "updated_at": self.updated_at,
+        }
+
 
 class DataSourceClient(BaseAPI):
     """Class to interact with the data sources endpoint of the Global Names Verifier API."""
@@ -130,7 +149,7 @@ class DataSourceClient(BaseAPI):
         sort_key : Optional[str] = None
             Key function to sort the data sources. If None, no sorting is applied.
         descending : bool = True
-            Flag to indicate if the data sources should be sorted in descending
+            Flag to indicate if the data sources should be sorted in descending order.
         """
         if sort_key:
             data_sources = sorted(data_sources, key=lambda ds: getattr(ds, sort_key), reverse=descending)
@@ -151,16 +170,43 @@ class DataSourceClient(BaseAPI):
         console = Console()
         console.print(table)
 
+    def export_data_sources_as_json(self, data_sources: list[DataSource], file_path: Optional[str] = None) -> str:
+        """Export data sources as a raw JSON string or save to a file.
+
+        Parameters
+        ----------
+        data_sources : list[DataSource]
+            A list of DataSource objects to be exported.
+        file_path : Optional[str] = None
+            Path to save the JSON file. If None, the JSON string will be returned.
+
+        Returns
+        -------
+        str
+            A JSON string representing the list of data sources if file_path is None.
+        """
+        json_data = json.dumps([ds.to_dict() for ds in data_sources], indent=2)
+        if file_path:
+            with open(file_path, "w") as json_file:
+                json_file.write(json_data)
+        return json_data
+
 
 if __name__ == "__main__":
     client = DataSourceClient()
     try:
         data_sources = client.get_data_sources()
 
-        # Example usage: Display data sources sorted by record count
-        # client.display_data_sources(data_sources, sort_key="record_count", descending=True)
-        plain_data = [ds.__dict__ for ds in data_sources]
-        print(plain_data)
+        # Example usage
+        # Export data sources as a JSON string
+        json_data = client.export_data_sources_as_json(data_sources)
+
+        # Write JSON data directly to stdout
+        # Here we avoid using print() to prevent any extra characters being added
+        sys.stdout.write(json_data + "\n")
+
+        # Or save the JSON to a file
+        # client.export_data_sources_as_json(data_sources, file_path="data_sources.json")
 
     except requests.RequestException as e:
         print(f"An error occurred: {e}")
